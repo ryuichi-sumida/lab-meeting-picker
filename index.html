@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Lab Meeting · Random Picker</title>
+<style>
+  :root {
+    --bg-1: #0f0c29;
+    --bg-2: #302b63;
+    --bg-3: #24243e;
+    --accent: #7c5cff;
+    --accent-2: #00d4ff;
+    --gold: #ffd86b;
+    --text: #f5f7ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    color: var(--text);
+    background: linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3));
+    background-size: 300% 300%;
+    animation: bgShift 18s ease infinite;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  @keyframes bgShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* floating orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb.a { width: 420px; height: 420px; background: #7c5cff; top: -120px; left: -120px; }
+  .orb.b { width: 360px; height: 360px; background: #00d4ff; bottom: -140px; right: -100px; animation: float 12s ease-in-out infinite; }
+  .orb.c { width: 280px; height: 280px; background: #ff5ca1; top: 40%; left: 60%; animation: float 16s ease-in-out infinite reverse; }
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0); }
+    50%      { transform: translate(40px, -30px); }
+  }
+
+  header {
+    z-index: 2;
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 44px);
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, #fff, #c9b8ff, #8ee8ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 700;
+  }
+  .sub {
+    margin-top: 8px;
+    font-size: 14px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  .stage {
+    z-index: 2;
+    position: relative;
+    width: min(780px, 95vw);
+    border-radius: 24px;
+    padding: 28px 24px;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  .slot {
+    position: relative;
+    height: 160px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15));
+    border: 1px solid rgba(255,255,255,0.12);
+    margin-bottom: 20px;
+  }
+  .slot::before, .slot::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    height: 50px;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .slot::before { top: 0; background: linear-gradient(180deg, rgba(20,18,50,0.95), rgba(20,18,50,0)); }
+  .slot::after  { bottom: 0; background: linear-gradient(0deg, rgba(20,18,50,0.95), rgba(20,18,50,0)); }
+
+  .reel {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    will-change: transform;
+  }
+  .reel .item {
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 20px;
+    text-align: center;
+  }
+  .item .name {
+    font-size: clamp(24px, 3.8vw, 38px);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .item .grade {
+    margin-top: 6px;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0.85;
+  }
+
+  .highlight-line {
+    position: absolute;
+    top: 50%;
+    left: 10px; right: 10px;
+    height: 2px;
+    transform: translateY(-1px);
+    background: linear-gradient(90deg, transparent, var(--accent-2), transparent);
+    z-index: 4;
+    opacity: 0.6;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  button {
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 14px 28px;
+    border-radius: 999px;
+    font-size: 15px;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s;
+    color: #fff;
+  }
+  button.primary {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    box-shadow: 0 10px 30px rgba(124, 92, 255, 0.5);
+  }
+  button.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(124, 92, 255, 0.65); }
+  button.ghost {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  button.ghost:hover { background: rgba(255,255,255,0.14); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+  .filters {
+    z-index: 2;
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-width: 820px;
+  }
+  .chip {
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: var(--text);
+    user-select: none;
+    transition: all 0.2s;
+  }
+  .chip.active {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+    box-shadow: 0 6px 18px rgba(0, 212, 255, 0.35);
+  }
+  .chip:hover:not(.active) { background: rgba(255,255,255,0.12); }
+
+  .history {
+    z-index: 2;
+    margin-top: 22px;
+    max-width: 820px;
+    width: min(780px, 95vw);
+    font-size: 13px;
+    opacity: 0.8;
+    text-align: center;
+  }
+  .history .label {
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-size: 11px;
+    opacity: 0.55;
+    margin-bottom: 6px;
+  }
+  .history .list span {
+    display: inline-block;
+    margin: 3px 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* winner pulse */
+  .winner .item.target .name {
+    background: linear-gradient(90deg, var(--gold), #fff3b0, var(--gold));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255,216,107,0)); }
+    50%      { filter: drop-shadow(0 0 14px rgba(255,216,107,0.75)); }
+  }
+
+  /* confetti */
+  canvas#confetti {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  footer {
+    z-index: 2;
+    margin-top: 18px;
+    font-size: 12px;
+    opacity: 0.45;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="orb a"></div>
+<div class="orb b"></div>
+<div class="orb c"></div>
+<canvas id="confetti"></canvas>
+
+<header>
+  <h1>🎯 Lab Meeting Random Picker</h1>
+  <div class="sub">MC for next week</div>
+</header>
+
+<div class="stage">
+  <div class="slot" id="slot">
+    <div class="highlight-line"></div>
+    <div class="reel" id="reel"></div>
+  </div>
+  <div class="controls">
+    <button class="primary" id="spinBtn">🎲 SPIN</button>
+    <button class="ghost" id="resetBtn">Reset History</button>
+  </div>
+</div>
+
+<div class="filters" id="filters"></div>
+
+<div class="history">
+  <div class="label">Already Picked</div>
+  <div class="list" id="historyList"><span style="opacity:0.5">—</span></div>
+</div>
+
+<footer>Press <b>SPACE</b> to spin · <b>R</b> to reset</footer>
+
+<script>
+  const MEMBERS = [
+    { grade: "D3", name: "Zhang Zimo (張　子黙)" },
+    { grade: "D3", name: "Chen Jianan (陳　嘉南)" },
+    { grade: "D3", name: "Pang Zi Haur (彭　子豪)" },
+    { grade: "D2", name: "Zhou Wangjin (周　汪勁)" },
+    { grade: "D2", name: "住田　龍宇一" },
+    { grade: "D1", name: "Wang Yichi (汪　意遅)" },
+    { grade: "M2", name: "加藤　利梓" },
+    { grade: "M2", name: "福重　茜" },
+    { grade: "M2", name: "馬越　亮" },
+    { grade: "M2", name: "Zhang Yizhou (張　亦洲)" },
+    { grade: "M1", name: "Kim Morris" },
+    { grade: "M1", name: "石山　蒼大" },
+    { grade: "M1", name: "岩田　宗真" },
+    { grade: "M1", name: "冨田　直也" },
+    { grade: "M1", name: "藤岡　登貴留アマル" },
+    { grade: "M1", name: "松村　成真" },
+    { grade: "Exchange", name: "Huang Zilong (HK Poly U)" },
+    { grade: "Exchange", name: "Anindita Mandal (IIT Kharagpur)" },
+    { grade: "Research", name: "Sarthak Giri" },
+  ];
+
+  const GRADES = ["All", "D3", "D2", "D1", "M2", "M1", "Exchange", "Research"];
+  let activeFilter = "All";
+  let history = [];
+  let spinning = false;
+
+  const reel = document.getElementById("reel");
+  const slot = document.getElementById("slot");
+  const spinBtn = document.getElementById("spinBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const filtersEl = document.getElementById("filters");
+  const historyList = document.getElementById("historyList");
+
+  // Build filter chips
+  GRADES.forEach(g => {
+    const chip = document.createElement("div");
+    chip.className = "chip" + (g === activeFilter ? " active" : "");
+    chip.textContent = g;
+    chip.onclick = () => {
+      if (spinning) return;
+      activeFilter = g;
+      document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.textContent === g));
+      renderIdleReel();
+    };
+    filtersEl.appendChild(chip);
+  });
+
+  function pool() {
+    let base = activeFilter === "All" ? MEMBERS.slice() : MEMBERS.filter(m => m.grade === activeFilter);
+    const remaining = base.filter(m => !history.includes(m.name));
+    return remaining.length ? remaining : base;
+  }
+
+  function itemHTML(m) {
+    return `<div class="item"><div class="name">${m.name}</div><div class="grade">${m.grade}</div></div>`;
+  }
+
+  function renderIdleReel() {
+    const members = pool();
+    if (!members.length) { reel.innerHTML = ""; return; }
+    reel.style.transition = "none";
+    reel.style.transform = "translateY(0)";
+    reel.innerHTML = members.map(itemHTML).join("");
+  }
+
+  function renderHistory() {
+    if (history.length === 0) {
+      historyList.innerHTML = `<span style="opacity:0.5">—</span>`;
+      return;
+    }
+    historyList.innerHTML = history.map(n => `<span>${n}</span>`).join("");
+  }
+
+  function spin() {
+    if (spinning) return;
+    const members = pool();
+    if (!members.length) return;
+
+    spinning = true;
+    spinBtn.disabled = true;
+    slot.classList.remove("winner");
+
+    const ITEM_H = 160;
+    const winner = members[Math.floor(Math.random() * members.length)];
+
+    // Build a long strip: many random items + winner near the end
+    const strip = [];
+    const TOTAL = 60;
+    for (let i = 0; i < TOTAL; i++) {
+      const m = members[Math.floor(Math.random() * members.length)];
+      strip.push(m);
+    }
+    const winnerIdx = TOTAL - 3;
+    strip[winnerIdx] = winner;
+
+    reel.innerHTML = strip.map((m, i) =>
+      `<div class="item${i === winnerIdx ? " target" : ""}"><div class="name">${m.name}</div><div class="grade">${m.grade}</div></div>`
+    ).join("");
+
+    // Position so that winnerIdx lands at center (slot height 160, center at 80)
+    const slotH = slot.clientHeight;
+    const targetOffset = winnerIdx * ITEM_H + ITEM_H / 2 - slotH / 2;
+    const jitter = (Math.random() - 0.5) * 20;
+    const finalY = -(targetOffset + jitter);
+
+    reel.style.transition = "none";
+    reel.style.transform = "translateY(0)";
+    // force reflow
+    reel.offsetHeight;
+    reel.style.transition = "transform 4.2s cubic-bezier(0.15, 0.9, 0.2, 1)";
+    reel.style.transform = `translateY(${finalY}px)`;
+
+    setTimeout(() => {
+      spinning = false;
+      spinBtn.disabled = false;
+      slot.classList.add("winner");
+      if (!history.includes(winner.name)) history.push(winner.name);
+      renderHistory();
+      launchConfetti();
+    }, 4300);
+  }
+
+  spinBtn.onclick = spin;
+  resetBtn.onclick = () => {
+    if (spinning) return;
+    history = [];
+    renderHistory();
+    slot.classList.remove("winner");
+    renderIdleReel();
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") { e.preventDefault(); spin(); }
+    if (e.key === "r" || e.key === "R") resetBtn.click();
+  });
+
+  renderIdleReel();
+  renderHistory();
+
+  // --- Confetti ---
+  const canvas = document.getElementById("confetti");
+  const ctx = canvas.getContext("2d");
+  function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+  resize();
+  window.addEventListener("resize", resize);
+
+  let particles = [];
+  function launchConfetti() {
+    const colors = ["#7c5cff", "#00d4ff", "#ffd86b", "#ff5ca1", "#8effc1"];
+    for (let i = 0; i < 160; i++) {
+      particles.push({
+        x: innerWidth / 2 + (Math.random() - 0.5) * 200,
+        y: innerHeight / 2,
+        vx: (Math.random() - 0.5) * 14,
+        vy: (Math.random() - 1) * 16 - 4,
+        g: 0.4 + Math.random() * 0.2,
+        size: 4 + Math.random() * 6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.3,
+        life: 140 + Math.random() * 60,
+      });
+    }
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles = particles.filter(p => p.life > 0);
+    for (const p of particles) {
+      p.vy += p.g;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vr;
+      p.life--;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      ctx.restore();
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+</script>
+</body>
+</html>
