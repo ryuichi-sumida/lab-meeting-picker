@@ -288,7 +288,7 @@
 <div class="filters" id="filters"></div>
 
 <div class="history">
-  <div class="label">Already Picked</div>
+  <div class="label">Already did MC · excluded</div>
   <div class="list" id="historyList"><span style="opacity:0.5">—</span></div>
 </div>
 
@@ -315,6 +315,18 @@
     { grade: "Exchange", name: "Huang Zilong (HK Poly U)" },
     { grade: "Exchange", name: "Anindita Mandal (IIT Kharagpur)" },
     { grade: "Research", name: "Sarthak Giri" },
+  ];
+
+  // Already served as MC this term — permanently excluded from picks.
+  const PAST_MC = [
+    "住田　龍宇一",            // #2 Sumida
+    "馬越　亮",               // #3 Magoshi
+    "Zhang Yizhou (張　亦洲)", // #4 Yi. Zhang
+    "福重　茜",               // #5 Fukushige
+    "加藤　利梓",             // #6 Katou
+    "藤岡　登貴留アマル",      // #7 Fujioka
+    "Kim Morris",            // #8 Kim Morris
+    "Pang Zi Haur (彭　子豪)", // #9 Pang
   ];
 
   const GRADES = ["All", "D3", "D2", "D1", "M2", "M1", "Exchange", "Research"];
@@ -345,6 +357,7 @@
 
   function pool() {
     let base = activeFilter === "All" ? MEMBERS.slice() : MEMBERS.filter(m => m.grade === activeFilter);
+    base = base.filter(m => !PAST_MC.includes(m.name));   // never pick a past MC
     const remaining = base.filter(m => !history.includes(m.name));
     return remaining.length ? remaining : base;
   }
@@ -362,11 +375,9 @@
   }
 
   function renderHistory() {
-    if (history.length === 0) {
-      historyList.innerHTML = `<span style="opacity:0.5">—</span>`;
-      return;
-    }
-    historyList.innerHTML = history.map(n => `<span>${n}</span>`).join("");
+    const past = PAST_MC.map(n => `<span style="opacity:0.55">${n} ✔︎</span>`).join("");
+    const session = history.map(n => `<span>${n}</span>`).join("");
+    historyList.innerHTML = (past + session) || `<span style="opacity:0.5">—</span>`;
   }
 
   function spin() {
